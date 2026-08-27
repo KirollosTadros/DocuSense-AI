@@ -1,0 +1,19 @@
+# Python byte-compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local environment and caches
+.venv/
+venv/
+.env
+
+# Hugging Face and pip caches
+.hf_cache/
+.pip-cache/
+
+# Local Vector Database (Chroma DB)
+doc_db/
+
+# PDF Documents
+*.pdf

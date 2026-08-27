@@ -1,0 +1,14 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+COPY .pip-cache /root/.cache/pip
+
+# Installs instantly from your local cache without internet access
+RUN pip install --find-links=/root/.cache/pip -r requirements.txt && \
+    rm -rf /root/.cache/pip
