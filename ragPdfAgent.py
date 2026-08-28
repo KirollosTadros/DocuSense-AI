@@ -15,8 +15,7 @@ class ragPdfAgent:
             print(f"Failed to initialize Vertex AI: {e}")
             self.model = None
 
-    def askRagAgent(self, user_query: str, chunks: Optional[List[str]] = None):
-    
+    def askRagAgent(self, user_query: str, model_name: str = "gemini-3.6-flash", chunks: Optional[List[str]] = None) -> str:    
 
         context_search = "\n\n".join(chunks) if chunks else "No context provided."
 
@@ -47,7 +46,7 @@ class ragPdfAgent:
         """
 
         response = self.client.models.generate_content(
-            model="gemini-3.6-flash",
+            model=model_name,
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.1,  # Lower temperature for factual precision
