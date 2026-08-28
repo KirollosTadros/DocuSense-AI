@@ -48,11 +48,20 @@ class RagGuiApp(ctk.CTk):
         self.file_label = ctk.CTkLabel(self.sidebar_frame, text="No file selected", wraplength=160, font=ctk.CTkFont(size=12, slant="italic"))
         self.file_label.grid(row=2, column=0, padx=20, pady=5)
 
-        #self.project_label = ctk.CTkLabel(self.sidebar_frame, text="Vertex Project ID:", anchor="w")
-        #self.project_label.grid(row=3, column=0, padx=20, pady=(10, 0))
-        self.project_entry = ctk.CTkEntry(self.sidebar_frame)
-        self.project_entry.grid(row=4, column=0, padx=20, pady=(0, 10))
-        self.project_entry.insert(0, "pdfragai")
+        self.project_entry = ctk.CTkEntry(
+            self.sidebar_frame,
+            justify="center",                      
+            font=ctk.CTkFont(family="Helvetica", size=15, weight="bold"),
+            height=38,
+            corner_radius=10,
+            fg_color=("gray85", "#1f2937"),
+            border_color=("gray70", "#3b82f6"),
+            border_width=2,
+            text_color=("gray10", "#f3f4f6"),
+        )
+        self.project_entry.grid(row=4, column=0, padx=20, pady=(0, 15), sticky="ew")
+        self.project_entry.insert(0, "DocuSense-AI")
+        self.project_entry.configure(state="readonly")
 
         self.clear_button = ctk.CTkButton(self.sidebar_frame, text="Clear Chat", fg_color="transparent", border_width=1, command=self.clear_chat)
         self.clear_button.grid(row=5, column=0, padx=20, pady=10)
@@ -67,7 +76,7 @@ class RagGuiApp(ctk.CTk):
         self.appearance_mode_optionemenu.grid(row=10, column=0, padx=20, pady=(10, 10))
         self.appearance_mode_optionemenu.set("Dark")
 
-        # Main Chat Area
+        # Main Area
         self.chat_frame = ctk.CTkFrame(self, corner_radius=0)
         self.chat_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
         self.chat_frame.grid_columnconfigure(0, weight=1)
@@ -92,7 +101,7 @@ class RagGuiApp(ctk.CTk):
         self.progress_bar.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
         self.progress_bar.set(0)
 
-        # Chat styling tags
+        # Chat tags
         self.chat_history.tag_config("User", foreground="#1f538d")
         self.chat_history.tag_config("Agent", foreground="#2fa572")
         self.chat_history.tag_config("System", foreground="gray")
