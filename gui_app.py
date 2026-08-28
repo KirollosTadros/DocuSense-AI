@@ -173,10 +173,10 @@ class RagGuiApp(ctk.CTk):
     def _query_worker(self, query):
         try:
             if not self.agent:
-                self.agent = ragPdfAgent()
+                self.agent = ragPdfAgent(db=self.db, embedding_model=self.chunk_creator.model)
             
             db_result = self.db.search(query=query, embedding_model=self.chunk_creator.model)
-            agent_reply = self.agent.askRagAgent(user_query=query, chunks=db_result)
+            agent_reply = self.agent.askRagAgent(user_query=query)
             
             self.after(0, lambda: self._on_query_complete(agent_reply))
         except Exception as e:

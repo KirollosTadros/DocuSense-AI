@@ -1,63 +1,48 @@
 from __future__ import annotations
 import os
-from vectorStore import VectorStore
 from typing import List, Optional
 from google import genai
 from google.genai import types
+from vectorStore import VectorStore
 
 class ragPdfAgent:
-    def __init__(self):
-        try:
-            api_key = os.getenv("GEMINI_API_KEY")
-            self.client = genai.Client(api_key=api_key)
-            self.history = []
-        except Exception as e:
-            print(f"Failed to initialize Vertex AI: {e}")
-            self.model = None
+    def __init__(self, db: VectorStore, embedding_model):
+        api_key = os.getenv("GEMINI_API_KEY")
+        self.client = genai.Client(api_key=api_key)
+        self.db = db
+        self.embedding_model = embedding_model
 
-    def askRagAgent(self, user_query: str, chunks: Optional[List[str]] = None):
-    
+        # 1. Define the tool as a clean closure
+        def search_db(query: str) -> dict:
+            """Searches the vector database for relevant PDF document chunks.
 
-        context_search = "\n\n".join(chunks) if chunks else "No context provided."
+            Args:
+                query: The search query used to find matching text chunks.
+            """
+            print(f"\n---> [TOOL TRIGGERED] Searching DB for: '{query}' <---", flush=True)
+            chunks = self.db.search(query=query, embedding_model=self.embedding_model)
+            print(f"---> [TOOL FINISHED] Found {len(chunks)} chunks. <---", flush=True)
+            return {"chunks": chunks}
 
-        # Format history for the prompt
-        history_str = ""
-        for turn in self.history[-5:]:  # Keep last 5 turns for context
-            history_str += f"User: {turn['user']}\nAssistant: {turn['assistant']}\n"
+        system_instruction = """You are a precise technical AI assistant.
 
-        prompt = f"""
-        You are a precise technical AI assistant. 
-                
         RULES:
-        1. Answer the user's question using ONLY the factual context provided below.
-        2. If the answer is not in the context, say "I don't know based on the document."
-        3. Do not use outside knowledge.
-        4. Reference the context naturally.
+        1. Always search for relevant context using the `search_db` tool before answering technical or factual questions.
+        2. Answer the user's question using ONLY the factual context returned by your retrieval tool.
+        3. If the retrieved context does not contain the answer, say "I don't know based on the document."
+        4. Reference the retrieved context naturally."""
 
-        CONVERSATION HISTORY:
-        {history_str}
-
-        CONTEXT FROM PDF (TOOL OUTPUT):
-        {context_search}
-
-        CURRENT USER QUESTION: 
-        {user_query}
-
-        ANSWER:
-        """
-
-        response = self.client.models.generate_content(
-            model="gemini-3.6-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.1,  # Lower temperature for factual precision
-                max_output_tokens=1024,
-            ),
+        config = types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            tools=[search_db],
         )
 
-        assistant_reply = response.text or "I don't know based on the document."
+        self.chat = self.client.chats.create(
+            model="gemini-3.1-flash-lite",
+            config=config,
+        )
 
-        # Update history
-        self.history.append({"user": user_query, "assistant": assistant_reply})
-
-        return assistant_reply
+    def askRagAgent(self, user_query: str) -> str:
+        print(f"\n[AGENT] Sending query: '{user_query}'", flush=True)
+        response = self.chat.send_message(user_query)
+        return response.text
