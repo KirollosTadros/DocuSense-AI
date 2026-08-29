@@ -1,6 +1,6 @@
 # RAG PDF Agent with CustomTkinter & Gemini
 
-An intelligent, precise, and visually modern **Retrieval-Augmented Generation (RAG)** application. It features both a desktop Graphical User Interface (GUI) built with CustomTkinter and a Command Line Interface (CLI) fallback. The application allows users to load any local PDF document, partition and generate dense embeddings, store them in a persistent vector database, and converse with the document using Google's latest **Gemini 3.6 Flash** model under strict, factual constraints.
+An intelligent, precise, and visually modern **Retrieval-Augmented Generation (RAG)** application. It features both a desktop Graphical User Interface (GUI) built with CustomTkinter and a Command Line Interface (CLI) fallback. The application allows users to load local PDF documents, partition and generate dense embeddings, and converse with the document using an **Agentic Active Retrieval** system powered by Google's latest **Gemini** models.
 
 ---
 
@@ -10,8 +10,9 @@ An intelligent, precise, and visually modern **Retrieval-Augmented Generation (R
 2. **Text Chunking:** Partitions the raw text into distinct, overlapping word-based chunks to preserve semantic context at boundaries.
 3. **Dense Vector Embeddings:** Computes high-dimensional vector representations for each text chunk using a local sentence-transformer.
 4. **Persistent Storage:** Saves chunks and embeddings to a localized Chroma database instance (`doc_db`).
-5. **Semantic Similarity Retrieval:** Encodes the user's chat query and runs a similarity search to retrieve the top $k$ most relevant context blocks from the vector DB.
-6. **Factual Grounded Chat:** Prompts the **Gemini 3.6 Flash** model with the retrieved context and a 5-turn history. It is programmed to answer strictly from the document context or say *"I don't know based on the document"* if the information is unavailable, eliminating hallucinations.
+5. **Active Retrieval (Agentic RAG):** Instead of simple static retrieval, the application uses **Function Calling**. The Gemini model is equipped with a `search_db` tool, allowing it to autonomously decide when it needs more context from the database to answer a query accurately.
+6. **Factual Grounded Chat:** Prompts the **Gemini** model with strict, factual constraints. It is programmed to answer strictly from the document context or say *"I don't know based on the document"* if the information is unavailable, eliminating hallucinations.
+7. **Dynamic Model Selection:** Users can switch between various Gemini models (Flash, Pro, Lite) on-the-fly via the GUI while maintaining conversation history.
 
 ---
 
@@ -34,7 +35,7 @@ The application follows a clean, decoupled modular design:
        ││                                                          │
        ││                 ┌────────────────────────┐               │
        │└─────────────────┤     ragPdfAgent.py     │◄──────────────┘
-       └─────────────────►│ (Google GenAI SDK chat)│ (Retrieves top K matches)
+       └─────────────────►│ (Agentic Tool Calling)  │ (Active Retrieval)
                           └────────────────────────┘
 ```
 
@@ -43,24 +44,36 @@ The application follows a clean, decoupled modular design:
 *   **`textEmbedding.py` (Chunker & Embedder):** 
     *   **Word Chunker:** Implements a sliding window algorithm (`wordChunker`) that tokenizes the text by spaces, generating chunks of $300$ words with an overlap of $50$ words to retain relational cohesion.
     *   **Embedding Generator:** Feeds chunks into the Hugging Face `all-MiniLM-L6-v2` Sentence Transformer model to produce $384$-dimensional dense vector embeddings.
-*   **`vectorStore.py` (Vector DB):** Interacts with `chromadb` using a `PersistentClient` targeting `./doc_db`. Handles database recreation/reset, indexing, and executing cosine similarity-based querying (retrieving the top $3$ matches).
-*   **`ragPdfAgent.py` (Agentic Chat Client):** Leverages Google's official new `google-genai` client library. Constructs a prompt injection holding context, conversation history, and user input. It issues requests to `gemini-3.6-flash` with a temperature of `0.1` to maximize precision and reduce creativity.
+*   **`vectorStore.py` (Vector DB):** Interacts with `chromadb` using a `PersistentClient` targeting `./doc_db`. Handles database recreation/reset, indexing, and executing cosine similarity-based querying.
+*   **`ragPdfAgent.py` (Agentic Chat Client):** Leverages Google's official `google-genai` client library. Implements **Active Retrieval** by exposing a `search_db` tool to the Gemini model via Function Calling. It manages the tool-execution loop, ensuring the model gathers all necessary context before responding.
 *   **`gui_app.py` & `app.py` (Frontend Interfaces):**
-    *   `gui_app.py`: Provides an interactive dark/light themed window using `customtkinter` with multi-threaded execution so that the GUI never freezes during heavy embedding or inference operations.
+    *   `gui_app.py`: Provides an interactive dark/light themed window using `customtkinter`. Features a model selection dropdown and multi-threaded execution to ensure a smooth UI experience.
     *   `app.py`: Standard terminal CLI variant.
+
+---
+
+## 🤖 Active Retrieval vs. Static Retrieval
+
+This application has transitioned from a traditional RAG approach (Static Retrieval) to an **Agentic RAG** approach (Active Retrieval):
+
+*   **Static Retrieval (Traditional):** The system searches the database *once* per query and feeds the top $k$ results to the LLM. If the search isn't perfect, the LLM might lack information.
+*   **Active Retrieval (Agentic):** The Gemini model is given a "tool" to search the database. It can:
+    *   Decide *if* it needs to search.
+    *   Refine its search query if initial results are insufficient.
+    *   Search multiple times if a complex question requires information from different parts of the document.
 
 ---
 
 ## 🛠️ Technology Stack
 
 *   **Language:** Python 3.10
-*   **UI Framework:** CustomTkinter & Tkinter (cross-platform graphical interface wrapper)
+*   **UI Framework:** CustomTkinter & Tkinter
 *   **PDF Library:** `pypdf`
-*   **Vector Database:** `chromadb` (Chroma Vector Database Engine)
-*   **Embedding Model:** `sentence-transformers` (`all-MiniLM-L6-v2` / 384 dimensions)
-*   **Large Language Model Platform:** Google GenAI SDK (`google-genai` Python library)
-*   **LLM Model:** `gemini-3.6-flash`
-*   **Containerization:** Docker (multi-stage setup with optimized local caching)
+*   **Vector Database:** `chromadb`
+*   **Embedding Model:** `sentence-transformers` (`all-MiniLM-L6-v2`)
+*   **LLM Platform:** Google GenAI SDK (`google-genai`)
+*   **Supported Models:** Gemini 3.6 Flash, 3.5 Flash-Lite, 3.1 Flash-Lite, 3.1 Pro Preview, etc.
+*   **Containerization:** Docker (multi-stage setup)
 
 ---
 

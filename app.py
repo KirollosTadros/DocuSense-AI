@@ -15,17 +15,14 @@ chunks, embeddings = myChunkCreator.generateEmbeddings(raw_text)
 db = VectorStore()
 db.add_chunks(chunks=chunks, embeddings=embeddings)
 
+agent = ragPdfAgent(db=db, embedding_model=myChunkCreator.model)
+
 while True:
     user_query = input("Please Enter your question or quit to close: ")
 
     if user_query == "quit":
         break
 
-    db_result = db.search(query=user_query, embedding_model=myChunkCreator.model)
-
-
-    agent = ragPdfAgent()
-
-    agent_reply = agent.askRagAgent(user_query=user_query, chunks=db_result)
+    agent_reply = agent.askRagAgent(user_query=user_query)
 
     print(agent_reply)
