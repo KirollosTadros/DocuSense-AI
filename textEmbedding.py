@@ -25,5 +25,4 @@ class textEmbedding:
         chunks = self.wordChunker(rawText)
 
         embeddings = self.model.encode(chunks, show_progress_bar=True, normalize_embeddings=True)
-
         return chunks, embeddings

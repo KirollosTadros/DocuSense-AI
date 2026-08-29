@@ -1,62 +1,81 @@
 from __future__ import annotations
 import os
-from vectorStore import VectorStore
 from typing import List, Optional
 from google import genai
 from google.genai import types
+from google.genai.types import FunctionDeclaration, GenerateContentConfig, Part, Tool
+from vectorStore import VectorStore
 
 class ragPdfAgent:
-    def __init__(self):
-        try:
-            api_key = os.getenv("GEMINI_API_KEY")
-            self.client = genai.Client(api_key=api_key)
-            self.history = []
-        except Exception as e:
-            print(f"Failed to initialize Vertex AI: {e}")
-            self.model = None
+    def __init__(self, db: VectorStore, embedding_model, model_name: str = "gemini-3.6-flash" ):
+        api_key = os.getenv("GEMINI_API_KEY")
+        self.client = genai.Client(api_key=api_key)
+        self.db = db
+        self.embedding_model = embedding_model
 
-    def askRagAgent(self, user_query: str, model_name: str = "gemini-3.6-flash", chunks: Optional[List[str]] = None) -> str:    
-
-        context_search = "\n\n".join(chunks) if chunks else "No context provided."
-
-        # Format history for the prompt
-        history_str = ""
-        for turn in self.history[-5:]:  # Keep last 5 turns for context
-            history_str += f"User: {turn['user']}\nAssistant: {turn['assistant']}\n"
-
-        prompt = f"""
-        You are a precise technical AI assistant. 
-                
-        RULES:
-        1. Answer the user's question using ONLY the factual context provided below.
-        2. If the answer is not in the context, say "I don't know based on the document."
-        3. Do not use outside knowledge.
-        4. Reference the context naturally.
-
-        CONVERSATION HISTORY:
-        {history_str}
-
-        CONTEXT FROM PDF (TOOL OUTPUT):
-        {context_search}
-
-        CURRENT USER QUESTION: 
-        {user_query}
-
-        ANSWER:
-        """
-
-        response = self.client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.1,  # Lower temperature for factual precision
-                max_output_tokens=1024,
-            ),
+        self.search_db = FunctionDeclaration(
+            name="search_db",
+            description="Get Information needed from the database",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "query to search for"}
+                },
+            },
         )
 
-        assistant_reply = response.text or "I don't know based on the document."
+        self.pdf_tool = Tool(
+            function_declarations=[
+                self.search_db
+            ],
+        )
+    
 
-        # Update history
-        self.history.append({"user": user_query, "assistant": assistant_reply})
+        system_instruction = """You are a precise technical AI assistant.
 
-        return assistant_reply
+        RULES:
+        1. The document you need is stored using Text Embedding LLM model in a vector database.
+        2. To retrieve data from the vector databse use tool 'pdf_tool' before answering question to get chunks.
+        3. Answer the user's question using the factual context returned by your retrieval tool from the vector database.
+        4. If the retrieved context does not contain the answer, say "I don't know based on the document."
+        5. Answer the used question with explaination based on the data retrieved"""
+
+        self.config = types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=0,
+            tools=[self.pdf_tool],
+        )
+
+        self.chat = self.client.chats.create(
+            model=model_name,
+            config=self.config,
+        )
+    def db_retrieval(self, query: str) -> dict:
+        return {"chunks":self.db.search(query = query, embedding_model = self.embedding_model)}
+
+    def switch_model(self, new_model_name: str):
+        history = self.chat.get_history()
+        self.current_model = new_model_name
+        self.chat = self.client.chats.create(
+            model=new_model_name,
+            history=history,
+            config=self.config,
+        )
+
+    def askRagAgent(self, user_query: str) -> str:
+        response = self.chat.send_message(user_query)
+        
+        while response.function_calls:
+            function_name = response.function_calls[0].name
+            query = response.function_calls[0].args.get('query')
+            chunks = self.db_retrieval(query)
+            function_response = [
+                types.Part.from_function_response(
+                    name = function_name,
+                    response={"content": chunks}
+                )
+            ]
+
+            response = self.chat.send_message(function_response)
+
+        return response.text

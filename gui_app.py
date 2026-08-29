@@ -136,6 +136,7 @@ class RagGuiApp(ctk.CTk):
     
     def dropdown_callback(self, choice):
             self.model_name = choice
+            self.agent.switch_model(new_model_name=self.model_name)
 
     def clear_chat(self):
         self.chat_history.configure(state="normal")
@@ -204,10 +205,10 @@ class RagGuiApp(ctk.CTk):
     def _query_worker(self, query):
         try:
             if not self.agent:
-                self.agent = ragPdfAgent()
+                self.agent = ragPdfAgent(db=self.db, embedding_model=self.chunk_creator.model, model_name=self.model_name)
             
             db_result = self.db.search(query=query, embedding_model=self.chunk_creator.model)
-            agent_reply = self.agent.askRagAgent(user_query=query, model_name=self.model_name , chunks=db_result)
+            agent_reply = self.agent.askRagAgent(user_query=query)
             
             self.after(0, lambda: self._on_query_complete(agent_reply))
         except Exception as e:
