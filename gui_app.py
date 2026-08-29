@@ -27,6 +27,9 @@ class RagGuiApp(ctk.CTk):
         self.db = VectorStore()
         self.agent = None
         
+        #Default Model
+        self.model_name = "gemini-3.6-flash"
+        
         # UI State
         self.is_processing = False
 
@@ -42,12 +45,15 @@ class RagGuiApp(ctk.CTk):
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="RAG Agent", font=ctk.CTkFont(size=20, weight="bold"))
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
 
+        #Bowse Button
         self.select_file_button = ctk.CTkButton(self.sidebar_frame, text="Browse PDF", command=self.browse_pdf)
         self.select_file_button.grid(row=1, column=0, padx=20, pady=10)
 
+        #File Name
         self.file_label = ctk.CTkLabel(self.sidebar_frame, text="No file selected", wraplength=160, font=ctk.CTkFont(size=12, slant="italic"))
         self.file_label.grid(row=2, column=0, padx=20, pady=5)
-
+        
+        #Project Name
         self.project_entry = ctk.CTkEntry(
             self.sidebar_frame,
             justify="center",                      
@@ -63,12 +69,34 @@ class RagGuiApp(ctk.CTk):
         self.project_entry.insert(0, "DocuSense-AI")
         self.project_entry.configure(state="readonly")
 
+        #Clear Chat button
         self.clear_button = ctk.CTkButton(self.sidebar_frame, text="Clear Chat", fg_color="transparent", border_width=1, command=self.clear_chat)
         self.clear_button.grid(row=5, column=0, padx=20, pady=10)
-
-        self.status_label = ctk.CTkLabel(self.sidebar_frame, text="Status: Ready", text_color="gray")
-        self.status_label.grid(row=6, column=0, padx=20, pady=10)
         
+        #Model
+        self.label_combo = ctk.CTkLabel(self.sidebar_frame, text="Gemini Model:")
+        self.label_combo.grid(row=6, column=0, padx=20, pady=10)
+
+        #Model Drop Down
+        self.combobox = ctk.CTkOptionMenu(
+        self.sidebar_frame,
+        values=[
+                "gemini-3.6-flash", 
+                "gemini-3.5-flash-lite", 
+                "gemini-3.1-flash-lite", 
+                "gemini-3.1-pro-preview", 
+                "gemini-3-flash-preview"
+            ],
+            command=self.dropdown_callback,
+            dynamic_resizing=False
+        )
+        self.combobox.grid(row=7, column=0, padx=20, pady=5)
+        self.combobox.set("gemini-3.6-flash")  # Set default value
+
+        #Status
+        self.status_label = ctk.CTkLabel(self.sidebar_frame, text="Status: Ready", text_color="gray")
+        self.status_label.grid(row=8, column=0, padx=20, pady=10)
+
         self.appearance_mode_label = ctk.CTkLabel(self.sidebar_frame, text="Appearance Mode:", anchor="w")
         self.appearance_mode_label.grid(row=9, column=0, padx=20, pady=(10, 0))
         self.appearance_mode_optionemenu = ctk.CTkOptionMenu(self.sidebar_frame, values=["Light", "Dark", "System"],
@@ -105,6 +133,10 @@ class RagGuiApp(ctk.CTk):
         self.chat_history.tag_config("User", foreground="#1f538d")
         self.chat_history.tag_config("Agent", foreground="#2fa572")
         self.chat_history.tag_config("System", foreground="gray")
+    
+    def dropdown_callback(self, choice):
+            self.model_name = choice
+            self.agent.switch_model(new_model_name=self.model_name)
 
     def clear_chat(self):
         self.chat_history.configure(state="normal")
@@ -173,7 +205,7 @@ class RagGuiApp(ctk.CTk):
     def _query_worker(self, query):
         try:
             if not self.agent:
-                self.agent = ragPdfAgent(db=self.db, embedding_model=self.chunk_creator.model)
+                self.agent = ragPdfAgent(db=self.db, embedding_model=self.chunk_creator.model, model_name=self.model_name)
             
             db_result = self.db.search(query=query, embedding_model=self.chunk_creator.model)
             agent_reply = self.agent.askRagAgent(user_query=query)

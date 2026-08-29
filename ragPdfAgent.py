@@ -7,7 +7,7 @@ from google.genai.types import FunctionDeclaration, GenerateContentConfig, Part,
 from vectorStore import VectorStore
 
 class ragPdfAgent:
-    def __init__(self, db: VectorStore, embedding_model):
+    def __init__(self, db: VectorStore, embedding_model, model_name: str = "gemini-3.6-flash" ):
         api_key = os.getenv("GEMINI_API_KEY")
         self.client = genai.Client(api_key=api_key)
         self.db = db
@@ -40,18 +40,27 @@ class ragPdfAgent:
         4. If the retrieved context does not contain the answer, say "I don't know based on the document."
         5. Answer the used question with explaination based on the data retrieved"""
 
-        config = types.GenerateContentConfig(
+        self.config = types.GenerateContentConfig(
             system_instruction=system_instruction,
             temperature=0,
             tools=[self.pdf_tool],
         )
 
         self.chat = self.client.chats.create(
-            model="gemini-3.1-flash-lite",
-            config=config,
+            model=model_name,
+            config=self.config,
         )
     def db_retrieval(self, query: str) -> dict:
         return {"chunks":self.db.search(query = query, embedding_model = self.embedding_model)}
+
+    def switch_model(self, new_model_name: str):
+        history = self.chat.get_history()
+        self.current_model = new_model_name
+        self.chat = self.client.chats.create(
+            model=new_model_name,
+            history=history,
+            config=self.config,
+        )
 
     def askRagAgent(self, user_query: str) -> str:
         response = self.chat.send_message(user_query)
